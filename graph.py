@@ -237,4 +237,32 @@ class Graph:
         
         return self._coords.get(id, None)
 
+    # ----------------------------------------
+    # Example Graphs
+
+    @classmethod
+    def line(cls, n):
+        """Create a line graph with n nodes."""
+        g = cls()
+        for i in range(n):
+            g.add_node(i)
+        for i in range(n - 1):
+            g.add_edge(i, i + 1)
+
+        def __repr__(self):
+            return f"Line({self.num_nodes})"
+        
+        return g
+
+    @classmethod
+    def cycle(cls, n):
+        """Create a cycle graph with n nodes."""
+        g = cls.line(n)
+        g.add_edge(n - 1, 0)
+
+        def __repr__(self):
+            return f"Cycle({self.num_nodes})"
+        
+        return g
+
     
