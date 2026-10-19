@@ -19,7 +19,12 @@ class Coin:
         if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
             raise ValueError("matrix must be a square matrix")
 
-        if np.dot(matrix, matrix.conj().T) != np.eye(matrix.shape[0]):
+        if not np.allclose(
+            matrix.conj().T @ matrix,
+            np.eye(matrix.shape[0]),
+            rtol=0,
+            atol=1e-10,
+        ):
             raise ValueError("matrix must be unitary")
 
         # Complex type check and conversion
