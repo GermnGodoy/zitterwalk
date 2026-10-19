@@ -22,35 +22,73 @@ class Walker:
     def __init__(self, graph, coins):
         """
         Initialize the Walker with a graph and coin operators.
+        The graph topology must remain fixed during the simulation.
         """
         self.graph = graph
         self.nodes = list(graph.nodes)
-        self.coins = coins if isinstance(coins, dict) else {node: coins for node in self.nodes}
+        self.coins = coins.copy() if isinstance(coins, dict) else {node: coins for node in self.nodes}
+        
+        self._flip = np.array(graph.flip, dtype=int)
+        self._node_arcs = {node: arcs.copy() for node, arcs in graph.leaving_node.items()}
+        
+        self._neighbors = {node: graph.neighbors(node) for node in self.nodes}
+        self.state = None
+        self.initial_state = None
+        self.time = 0
+
+        for node in self.nodes:
+            degree = len(self._node_arcs[node])
+            if degree == 0:
+                continue
+            if node not in self.coins:
+                raise ValueError(f"Missing coin for node {node}")
+            if not isinstance(self.coins[node], Coin):
+                raise TypeError(f"Coin for node {node} must be a Coin instance")
+            if self.coins[node].dimension != degree:
+                raise ValueError(f"Coin for node {node} must have dimension {degree}")
+
+    def _check_ready(self, require_state=True):
+        """Check that the topology is unchanged and a state is available."""
+        
+        if (self.graph.nodes != self.nodes or
+                any(self.graph.neighbors(node) != self._neighbors[node] for node in self.nodes)):
+            raise RuntimeError("Graph topology has changed; create a new Walker")
+        
+        if require_state and self.state is None:
+            raise RuntimeError("Initialize the state with set_state() or localize() first")
 
     def set_state(self, state):
         """
         Set the current state of the walker.
         """
+        self._check_ready(require_state=False)
         if not isinstance(state, np.ndarray):
             raise TypeError("state must be a numpy ndarray")
         if state.ndim != 1 or state.shape[0] != self.graph.num_arcs:
             raise ValueError(f"state must be a 1D array of length {self.graph.num_arcs}")
         if not np.issubdtype(state.dtype, np.complexfloating):
             raise TypeError("state must be a complex array")
+        if not np.all(np.isfinite(state)):
+            raise ValueError("state must contain only finite values")
+        if not np.isclose(np.linalg.norm(state), 1, rtol=0, atol=1e-10):
+            raise ValueError("state must be normalized")
         
-        self.state = state
+        self.state = state.copy()
         self.initial_state = state.copy()
         self.time = 0
 
     def localize(self, node, amplitudes = None):
         """
         Localize the walker at a specific node with given amplitudes.
-        If amplitudes are not provided, the walker is localized at the first arc of the node.
+        If amplitudes are not provided, use a uniform superposition of outgoing arcs.
         """
+        self._check_ready(require_state=False)
         if node not in self.nodes:
             raise ValueError(f"Node {node} is not in the graph")
         
-        arcs = self.graph.get_arcs(node)
+        arcs = self._node_arcs[node]
+        if not arcs:
+            raise ValueError(f"Node {node} has no outgoing arcs")
         if amplitudes is None: # Initialize uniform amplitudes
             amplitudes = np.ones(len(arcs), dtype=np.complex128) / np.sqrt(len(arcs))
         else:
@@ -70,10 +108,13 @@ class Walker:
         """
         Apply the coin operator to the current state of the walker.
         """
+        self._check_ready()
         new_state = np.zeros_like(self.state)
         
         for node in self.nodes:
-            arcs = self.graph.get_arcs(node)
+            arcs = self._node_arcs[node]
+            if not arcs:
+                continue
             coin = self.coins[node]
             local_state = self.state[arcs]
             new_state[arcs] = coin.apply(local_state)
@@ -83,7 +124,8 @@ class Walker:
         """
         Return amplitudes reordered according to the flip of the graph.
         """
-        return self.state[self.graph.flip]
+        self._check_ready()
+        return self.state[self._flip]
 
     def step(self):
         """
@@ -96,8 +138,16 @@ class Walker:
 
     def steps(self, steps):
         """
-        Perform steps time steps of the quantum walk.
+        Return the current arc state and the states after each requested step.
         """
+        
+        self._check_ready()
+        
+        if isinstance(steps, (bool, np.bool_)) or not isinstance(steps, (int, np.integer)):
+            raise TypeError("steps must be an integer")
+        if steps < 0:
+            raise ValueError("steps must be non-negative")
+        
         all = []
         all.append(self.state.copy())
 
@@ -109,16 +159,24 @@ class Walker:
 
     # ---- Utils
 
+    def probabilities(self):
+        """Return node probabilities in the order of self.nodes, without changing the state."""
+        self._check_ready()
+        return np.array([np.sum(np.abs(self.state[self._node_arcs[node]]) ** 2)
+                         for node in self.nodes])
+
     def norm(self):
         """
         Return the norm of the current state of the walker.
         """
+        self._check_ready()
         return np.linalg.norm(self.state)
 
     def reset(self):
         """
         Reset the walker to its initial state and time step.
         """
+        self._check_ready()
         self.state = self.initial_state.copy()
         self.time = 0
 
