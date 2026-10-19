@@ -65,13 +65,16 @@ class Edge:
 
 class Graph:
     """
-    An undirected graph, with lazy built arc representation
+    An undirected graph, with a lazily built arc representation.
+
+    A self-loop contributes one neighbor and one arc, which is its own reverse.
 
     Attributes:
         arcs (list): A list of arcs (directed) in the graph.
-        arc_index (dict): A dictionary mapping node ids to their corresponding arcs.
-        flip (array): Where flip[i] is the index of the arc that is the reverse of arc i.
-        leaving_node (dict): A dictionary mapping node ids to their corresponding leaving arcs.
+        arcs_index (dict): A dictionary mapping directed node pairs to arc indices.
+        flip (list): Where flip[i] is the index of the reverse of arc i.
+        leaving_node (dict): A dictionary mapping node ids to outgoing arc indices.
+        node_arcs (dict): An alias for leaving_node.
     """
 
     def __init__(self):
@@ -80,10 +83,11 @@ class Graph:
         self._dirty = True # flag to indicate if the graph has been modified
         self._coords = {} # id -> coordinates array
         
-        self.arcs = []
-        self.arcs_index = {}
-        self.flip = []
-        self.leaving_node = {}
+        self._arcs = []
+        self._arcs_index = {}
+        self._flip = []
+        self._leaving_node = {}
+        self._node_pos = {}
 
     # ---- Construction
     
@@ -98,21 +102,14 @@ class Graph:
         """Add an undirected edge between two nodes with the given ids."""
 
         self.add_node(id1)
-
-        if id1 == id2: # ciclic edge
-            if id1 in self._nodes[id1].neighbors:
-                return
-            self._nodes[id1].add_neighbor(id1)
-            self._dirty = True
-            return
-
         self.add_node(id2)
 
         if id2 in self._nodes[id1].neighbors:
             return
 
         self._nodes[id1].add_neighbor(id2)
-        self._nodes[id2].add_neighbor(id1)
+        if id1 != id2:
+            self._nodes[id2].add_neighbor(id1)
         self._edges.append(Edge(self._nodes[id1], self._nodes[id2]))
         self._dirty = True
 
@@ -136,45 +133,68 @@ class Graph:
         """Build the arcs representation of the graph."""
 
         # TODO: maybe will be interesting to add changes pool instead of full rebuild
-        self.arcs = []
-        self.arcs_index = {}
-        self.node_arcs = {nid: [] for nid in self._nodes}
+        self._arcs = []
+        self._arcs_index = {}
+        self._leaving_node = {nid: [] for nid in self._nodes}
 
         for node_id, node in self._nodes.items():
             for neighbor_id in node.neighbors:
-                arc_index = len(self.arcs)
+                arc_index = len(self._arcs)
 
-                self.arcs.append((node_id, neighbor_id))
-                self.arcs_index[(node_id, neighbor_id)] = arc_index
-                self.node_arcs[node_id].append(arc_index)
+                self._arcs.append((node_id, neighbor_id))
+                self._arcs_index[(node_id, neighbor_id)] = arc_index
+                self._leaving_node[node_id].append(arc_index)
 
-        self.flip = [arc_index[(neighbor_id, node_id)] for node_id, neighbor_id in self.arcs]
+        self._flip = [self._arcs_index[(neighbor_id, node_id)]
+                      for node_id, neighbor_id in self._arcs]
 
-        self._node_pos = {node_id: idx for idx, node_id in enumerate(self.arcs)}
+        self._node_pos = {node_id: idx for idx, node_id in enumerate(self._nodes)}
 
         self._dirty = False
 
     # ---- Spatial Coordinates
     
-        def set_coords(self, coords):
-            """Attach spatial coordinates to nodes from a dict {node: coord}.
-    
-            Args:
-                coords: dict mapping node ids to coordinates.
-            """
-            for node_id, coord in coords.items():
-                if node_id not in self._nodes:
-                    raise Warning(f"Node with id {node_id} does not exist in the graph.")
-                
-                self._coords[node_id] = np.atleast_1d(np.asarray(coord, dtype=float))
-    
-        @property
-        def coords(self):
-            """Return the coordinates of the nodes as a dict {node: coord}."""
-            self._ensure_arcs()
-            return self._coords
+    def set_coords(self, coords):
+        """Attach spatial coordinates to existing nodes from a dict {node: coord}."""
+        converted = {}
+        for node_id, coord in coords.items():
+            if node_id not in self._nodes:
+                raise ValueError(f"Node with id {node_id} does not exist in the graph.")
+
+            converted[node_id] = np.atleast_1d(np.asarray(coord, dtype=float))
+
+        self._coords.update(converted)
+
+    @property
+    def coords(self):
+        """Return the coordinates of the nodes as a dict {node: coord}."""
+        return self._coords
 
     # ---- Props
+
+    @property
+    def arcs(self):
+        self._ensure_arcs()
+        return self._arcs
+
+    @property
+    def arcs_index(self):
+        self._ensure_arcs()
+        return self._arcs_index
+
+    @property
+    def flip(self):
+        self._ensure_arcs()
+        return self._flip
+
+    @property
+    def leaving_node(self):
+        self._ensure_arcs()
+        return self._leaving_node
+
+    @property
+    def node_arcs(self):
+        return self.leaving_node
 
     @property
     def nodes(self):
@@ -194,7 +214,6 @@ class Graph:
     @property
     def num_arcs(self):
         """Return the number of arcs in the graph."""
-        self._ensure_arcs()
         return len(self.arcs)
 
     # ---- Node Props
@@ -225,7 +244,9 @@ class Graph:
         return node.degree
 
     def node_position(self, id):
-        """Return the position of the node in the arcs list."""
+        """Return the index of the node in insertion order, as listed by nodes."""
+        if not self.is_node(id):
+            raise ValueError(f"Node with id {id} does not exist in the graph.")
         self._ensure_arcs()
         return self._node_pos[id]
 
@@ -243,26 +264,22 @@ class Graph:
     @classmethod
     def line(cls, n):
         """Create a line graph with n nodes."""
+        if n < 0:
+            raise ValueError("A line graph cannot have a negative number of nodes.")
         g = cls()
         for i in range(n):
             g.add_node(i)
         for i in range(n - 1):
             g.add_edge(i, i + 1)
 
-        def __repr__(self):
-            return f"Line({self.num_nodes})"
-        
         return g
 
     @classmethod
     def cycle(cls, n):
-        """Create a cycle graph with n nodes."""
+        """Create a simple cycle graph with n nodes, where n is at least three."""
+        if n < 3:
+            raise ValueError("A simple cycle graph requires at least three nodes.")
         g = cls.line(n)
         g.add_edge(n - 1, 0)
 
-        def __repr__(self):
-            return f"Cycle({self.num_nodes})"
-        
         return g
-
-    
