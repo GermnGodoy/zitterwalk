@@ -9,7 +9,7 @@ from matplotlib.patches import Circle
 
 # ---------------------------------------------
 # Plotter
-
+# TODO: Think if it is better to have a separate class for each mode, and new plot types
 class Plotter:
     """Draw or animate probabilities for a Graph.
 
