@@ -106,14 +106,14 @@ class Plotter:
             self.ax.set_theta_zero_location("N")
             self.ax.set_theta_direction(-1)
             
-            self.ax.set_xticks(angles[ticks], [str(self.nodes[i]) for i in ticks])
-            levels = np.linspace(0, ymax, 5)
-            self.ax.set_yticks(1 + levels, [f"{p:g}" for p in levels])
+            self.ax.set_xticks([])
+            self.ax.set_yticks([1 + ymax], [f"{ymax:g}"])
+            self.ax.grid(False)
+            self.ax.spines["polar"].set_alpha(0.15)
             
             self.ax.set_ylim(0, 1 + ymax)
             circle = np.linspace(0, 2 * np.pi, 200)
             self.ax.plot(circle, np.ones_like(circle), color="0.4", linewidth=1)
-            self.ax.set_ylabel("Probabilidad", labelpad=35)
         
         else:
             # Draw bars in a linear layout
