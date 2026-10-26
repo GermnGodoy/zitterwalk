@@ -18,10 +18,14 @@ class Plotter:
         mode (str): The plotting mode, one of ``bars``, ``graph``, or ``circular``.
         layout (str): The graph layout, one of ``auto``, ``line``, or ``circle``.
         ymax (float): The maximum y-value for bar plots.
+        vmax (float): The probability mapped to full turquoise in graph mode.
+        node_size (float or None): Node marker area in points squared; None uses an automatic size.
+        colorbar_shrink (float): Size of the colorbar relative to the graph axes.
         title (str): The title of the plot.
     """
 
-    def __init__(self, graph, mode="bars", *, layout="auto", ymax=1.0, title="Quantum walk"):
+    def __init__(self, graph, mode="bars", *, layout="auto", ymax=1.0, title="Quantum walk",
+                 vmax=1.0, node_size=None, colorbar_shrink=1.0):
         
         if mode not in ("bars", "graph", "circular"):
             raise ValueError("mode must be 'bars', 'graph', or 'circular'")
@@ -31,6 +35,12 @@ class Plotter:
             raise ValueError("Cannot plot an empty graph")
         if not np.isfinite(ymax) or ymax <= 0:
             raise ValueError("ymax must be finite and positive")
+        if not np.isfinite(vmax) or vmax <= 0:
+            raise ValueError("vmax must be finite and positive")
+        if node_size is not None and (not np.isfinite(node_size) or node_size <= 0):
+            raise ValueError("node_size must be finite and positive")
+        if not np.isfinite(colorbar_shrink) or colorbar_shrink <= 0:
+            raise ValueError("colorbar_shrink must be finite and positive")
 
         self.graph = graph
         self.nodes = graph.nodes
@@ -38,6 +48,9 @@ class Plotter:
         self._title = title
         
         count = len(self.nodes)
+        color = "turquoise"
+        if node_size is None:
+            node_size = 30 if count > 30 else 80
         indices = np.arange(count)
         ticks = indices[::max(1, int(np.ceil(count / 20)))]
         angles = 2 * np.pi * indices / count
@@ -63,11 +76,11 @@ class Plotter:
                     self.ax.add_patch(Circle((x, y + loop_radius), loop_radius,
                                              fill=False, edgecolor="0.65"))
             
-            cmap = LinearSegmentedColormap.from_list("probability", ["white", "green"])
+            cmap = LinearSegmentedColormap.from_list("probability", ["white", color])
             
             self._points = self.ax.scatter(
                 positions[:, 0], positions[:, 1], c=np.zeros(count),
-                cmap=cmap, vmin=0, vmax=1, s=30 if count > 30 else 80,
+                cmap=cmap, vmin=0, vmax=vmax, s=node_size,
                 edgecolors="0.3", zorder=2,
             )
             
@@ -83,12 +96,13 @@ class Plotter:
             self.ax.set_xlim(bounds.x0 - padding, bounds.x1 + padding)
             self.ax.set_ylim(bounds.y0 - padding, bounds.y1 + padding)
             self.ax.set_axis_off()
-            self.fig.colorbar(self._points, ax=self.ax, label="Probabilidad")
+            self.fig.colorbar(self._points, ax=self.ax, label="Probabilidad",
+                              shrink=colorbar_shrink)
         
         elif mode == "circular":
             # Draw bars in a circular layout
             self._bars = self.ax.bar(angles, np.zeros(count), bottom=1,
-                                     width=0.9 * 2 * np.pi / count, color="seagreen")
+                                     width=0.9 * 2 * np.pi / count, color=color)
             self.ax.set_theta_zero_location("N")
             self.ax.set_theta_direction(-1)
             
@@ -104,7 +118,7 @@ class Plotter:
         else:
             # Draw bars in a linear layout
             self._bars = self.ax.bar(indices, np.zeros(count), width=0.9,
-                                     color="steelblue")
+                                     color=color)
             self.ax.set_xticks(ticks, [str(self.nodes[i]) for i in ticks])
             
             self.ax.set_xlabel("Posición (nodo)")
