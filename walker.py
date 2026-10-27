@@ -13,17 +13,34 @@ class Walker:
         coins (dict): A dictionary mapping nodes to their corresponding coin operators.
         state (np.ndarray complex): The current state of the walker (length of graph.num_arcs).
         initial_state (np.ndarray complex): The initial state of the walker (length of graph.num_arcs).
-        time (int): The current time step of the walker.
+        time (int): The current step count where the physical time is time * dt.
         
+        q (float): Electric charge, fixed at construction.
+        dt (float): Duration of each step, fixed at construction.
+                
+
         _flip (np.ndarray): Copy of the flip from the graph.
         _node_arcs (dict): Mapping of nodes to their corresponding arcs in the graph.
+        _potential_phase (np.ndarray): Electrostatic phase for each arc's source node.
     """
 
-    def __init__(self, graph, coins):
+    def __init__(self, graph, coins, potential=None, q=1.0, dt=1.0):
         """
         Initialize the Walker with a graph and coin operators.
         The graph topology must remain fixed during the simulation.
+        
+        Potential is an optional dict {node: electric potential}, omitted nodes use zero.
         """
+
+        for name, value in (("q", q), ("dt", dt)):
+            if not isinstance(value, (int, float, np.integer, np.floating)) or not np.isfinite(value):
+                raise ValueError(f"{name} must be a finite real number")
+        
+        if dt <= 0:
+            raise ValueError("dt must be positive")
+        
+        self.q = q
+        self.dt = dt
         self.graph = graph
         self.nodes = list(graph.nodes)
         self.coins = coins.copy() if isinstance(coins, dict) else {node: coins for node in self.nodes}
@@ -46,6 +63,21 @@ class Walker:
                 raise TypeError(f"Coin for node {node} must be a Coin instance")
             if self.coins[node].dimension != degree:
                 raise ValueError(f"Coin for node {node} must have dimension {degree}")
+
+        self._potential_phase = np.ones(graph.num_arcs, dtype=np.complex128)
+        
+        if potential is not None:
+            if not isinstance(potential, dict):
+                raise TypeError("potential must be a dict mapping nodes to real values")
+            
+            for node, value in potential.items():
+                if node not in self._node_arcs:
+                    raise ValueError(f"Node {node} is not in the graph")
+                
+                if not isinstance(value, (int, float, np.integer, np.floating)) or not np.isfinite(value):
+                    raise ValueError(f"Potential for node {node} must be a finite real number")
+                
+                self._potential_phase[self._node_arcs[node]] = np.exp(-1j * self.q * value * self.dt)
 
     def _check_ready(self, require_state=True):
         """Check that the topology is unchanged and a state is available."""
@@ -130,10 +162,10 @@ class Walker:
     def step(self):
         """
         Perform a single time step of the quantum walk.
-        This involves applying the coin operator followed by the shift operation.
+        Apply the coin, shift, and then the local electrostatic phase.
         """
         self.apply_coin()
-        self.state = self._shift()
+        self.state = self._shift() * self._potential_phase
         self.time += 1
 
     def steps(self, steps):
