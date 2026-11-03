@@ -1,0 +1,73 @@
+[project]
+site_name = "zitterwalk."
+site_url = "https://germngodoy.github.io/zitterwalk/"
+site_description = "Discrete-time quantum walks on graphs with Python."
+repo_url = "https://github.com/GermnGodoy/zitterwalk"
+repo_name = "GermnGodoy/zitterwalk"
+nav = [
+  { "Home" = "index.md" },
+  { "Getting Started" = "getting-started.md" },
+  { "Examples" = [
+    { "Quantum Walk on a Line" = "examples/line.md" },
+    { "Quantum Walk on a Circle" = "examples/circle.md" },
+    { "Quantum Walk with an Electric Field" = "examples/electric-field.md" },
+  ] },
+  { "API Reference" = [
+    { "Coin" = "api/coin.md" },
+    { "Graph" = "api/graph.md" },
+    { "Node" = "api/node.md" },
+    { "Edge" = "api/edge.md" },
+    { "Walker" = "api/walker.md" },
+    { "Fields" = "api/fields.md" },
+    { "Plotter" = "api/plotter.md" },
+  ] },
+]
+extra_javascript = [
+  "javascripts/mathjax.js",
+  "https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js",
+]
+
+[project.theme]
+variant = "modern"
+language = "en"
+font = false
+features = ["navigation.sections", "navigation.expand", "content.code.copy", "search.highlight"]
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "teal"
+accent = "teal"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "teal"
+accent = "teal"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+toc.permalink = true
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.superfences = {}
+pymdownx.inlinehilite = {}
+pymdownx.arithmatex.generic = true
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["."]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "google"
+docstring_options = { ignore_init_summary = true, returns_named_value = false }
+docstring_section_style = "table"
+filters = ["!^_"]
+members_order = "source"
+group_by_category = false
+show_root_heading = true
+show_root_full_path = false
+show_source = false
+show_signature_annotations = true
+merge_init_into_class = true
+separate_signature = true
+heading_level = 2
