@@ -4,7 +4,7 @@ A static potential changes the relative phases accumulated during a walk. Here a
 
 The existing `potential_from_field()` helper computes $V_n = F_n \cdot (r_n-r_{\mathrm{ref}})$ with a **positive** dot product. To use the electrostatic convention $E=-\nabla V$, pass `-electric_field` to `uniform_field()`, giving $V_n=-E(x_n-x_{\mathrm{ref}})$. The walker applies $\exp(-i q V_n\,\Delta t)$ after the coin and shift, with $\hbar=1$.
 
-Run this code from the repository root after [installing the dependencies](../getting-started.md#1-install-and-run). It saves `electric-field.png` in the current directory and opens the figure.
+Run this code from the repository root after [installing the dependencies](../getting-started.md#install-and-run). It saves `electric-field.png` in the current directory and opens the figure.
 
 ```python
 import matplotlib.pyplot as plt

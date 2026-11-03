@@ -2,7 +2,7 @@
 
 A finite line has two endpoints (of degree one) and degree two interior nodes. This example initializes the walker at the center with equal-magnitude amplitudes and a relative phase of $i$, then evolves it for 25 steps. The endpoints are far enough away that the walk has not yet reached them (this makes everything easier to visualize).
 
-Run this code from the repository root after [installing the dependencies](../getting-started.md#1-install-and-run). It saves `line.png` in the current directory and opens the figure.
+Run this code from the repository root after [installing the dependencies](../getting-started.md#install-and-run). It saves `line.png` in the current directory and opens the figure.
 
 ```python
 import matplotlib.pyplot as plt

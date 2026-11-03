@@ -2,7 +2,7 @@
 
 A cycle connects the last node back to the first, so every node has degree two. This example starts at node 15 and uses a single Hadamard coin for all nodes. The circular plotting mode displays each probability as a bar rising from a common circle.
 
-Run this code from the repository root after [installing the dependencies](../getting-started.md#1-install-and-run). It saves `circle.png` in the current directory and opens the figure.
+Run this code from the repository root after [installing the dependencies](../getting-started.md#install-and-run). It saves `circle.png` in the current directory and opens the figure.
 
 ```python
 import matplotlib.pyplot as plt
